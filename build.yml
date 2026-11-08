@@ -1,0 +1,49 @@
+name: Build MixWaves Squeeze
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+          - name: macOS
+            os: macos-latest
+            extra: -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+          - name: Linux
+            os: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dépendances Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libjack-jackd2-dev libfreetype-dev \
+            libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev \
+            libxrandr-dev libxrender-dev libglu1-mesa-dev mesa-common-dev
+
+      - name: Configurer
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release ${{ matrix.extra }}
+
+      - name: Compiler
+        run: cmake --build build --config Release --parallel
+
+      - name: Envoyer le plugin (VST3 / AU)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Squeeze-${{ matrix.name }}
+          path: |
+            build/Squeeze_artefacts/Release/VST3
+            build/Squeeze_artefacts/Release/AU
+            build/Squeeze_artefacts/Release/Standalone
+          if-no-files-found: warn
